@@ -1,0 +1,47 @@
+set search_path to locadora;
+--filmes e suas classificacoes
+	select filme.titulo_original, c.nome  
+	from filme
+	inner join classificacao c on c.cod = filme.classificacao;
+
+--todas as classificacoes com suas respectivas quantidades de filmes
+select c.nome, sum(f.classificacao) as totalFilme
+from classificacao c
+inner join filme f on f.classificacao = c.cod
+group by c.nome;
+--lista de emprestimos com cada filme alugado
+select c.nome, e.tipo, e.dataret, e.datadev from emprestimo e 
+inner join cliente c on c.numcliente = e.cliente;
+
+--4 pbter a lista de atores com o nome de cada diretor com que trabalhou
+
+select a.nomereal, f.direcao from ator a
+inner join estrela e on e.codator = a.cod
+inner join filme f on f.numfilme = e.numfilme 
+order by nomereal ;
+
+--5 media dos emprestimos de cada cliente
+select c.nome, avg(e.valor_pg) from cliente c 
+inner join emprestimo e on e.cliente = c.numcliente 
+group by c.nome ;
+
+
+--6 – Obter Uma listagem com nomes de todos os clientes e os títulos em português dos filmes alugadospor cada um.
+select c.nome, f.titulo_pt from cliente c
+inner join emprestimo e on e.cliente = c.numcliente 
+left outer join filme f on f.numfilme = e.numfilme
+order by nome;
+
+--7 – Obter uma lista com nomes de clientes e os nomes artísticos dos atores norte-americanos (USA,Canadá ou México) vistos por cada cliente em algum dos filmes que o mesmo alugou.
+
+select c.nome, a.nomeartistico from cliente c 
+inner join emprestimo e on e.cliente = c.numcliente 
+inner join filme f on f.numfilme = e.numfilme 
+left join estrela es on es.numfilme = f.numfilme 
+left join ator a on a.cod = es.codator
+order by nomereal;
+
+--8 – Obter a quantidade de clientes que cada cliente indicou. A listagem deve incluir todos os clientes,inclusive aqueles que não indicaram ninguém (com contagem 0 nesse caso).
+--select c.nome, count(indica) from cliente c
+
+

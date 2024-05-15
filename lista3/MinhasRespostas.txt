@@ -1,0 +1,198 @@
+set search_path to cargasaereas;
+SELECT V.CodVoo, T.Origem, T.Destino
+FROM Voo V
+JOIN Rota R ON V.CodVoo = R.CodVoo
+JOIN Trecho T ON R.Origem = T.Origem AND R.Destino = T.Destino
+JOIN Empresa E ON V.CodEmp = E.CodEmp
+WHERE E.Nome = 'Gol Linhas Aéreas'
+ORDER BY V.CodVoo, R.H_Saida;
+
+
+--um voo a 23:40, que atrasa e sai as 00:10 do outro dia, deveria ser impresso?
+--resposta item 3
+SELECT V.* AS Origem, T2.Destino AS Destino_Imediato
+FROM Viagem V
+JOIN Rota R ON V.CodRota = R.CodRota
+JOIN Trecho T1 ON R.Origem = T1.Origem AND R.Destino = T1.Destino
+JOIN Trecho T2 ON R.Destino = T2.Origem
+WHERE T1.Origem = 'GIG' 
+AND DATE(V.Data) = '2022-11-07'
+ORDER BY R.h_saida ;
+
+
+--item 4
+select r.origem from rota r where r.codvoo
+in (select v.codvoo from voo v where v.codemp = 'AZU')
+union (select rr.destino from rota rr where rr.codvoo
+in (select vv.codvoo from voo vv where vv.codemp = 'AZU'));
+
+
+
+--exercicio 5
+
+
+
+select * from viagem v ;
+
+
+
+
+--6
+WITH PrimeiraOrigem AS (
+    SELECT CodVoo, Origem AS PrimeiraOrigem
+    FROM (
+        SELECT CodVoo, Origem, ROW_NUMBER() OVER(PARTITION BY CodVoo ORDER BY H_Saida) AS RN
+        FROM Rota
+    ) AS T
+    WHERE RN = 1
+), UltimoDestino AS (
+    SELECT CodVoo, Destino AS UltimoDestino
+    FROM (
+        SELECT CodVoo, Destino, ROW_NUMBER() OVER(PARTITION BY CodVoo ORDER BY H_Chegada DESC) AS RN
+        FROM Rota
+    ) AS T
+    WHERE RN = 1
+), NumEscalas AS (
+    SELECT R.CodVoo, COUNT(*) AS NumEscalas
+    FROM Rota R
+    GROUP BY R.CodVoo
+)
+SELECT E.codemp  AS Empresa, V.CodVoo, PO.PrimeiraOrigem, UD.UltimoDestino, NE.NumEscalas
+FROM Voo V
+JOIN Empresa E ON V.CodEmp = E.CodEmp
+LEFT JOIN PrimeiraOrigem PO ON V.CodVoo = PO.CodVoo
+LEFT JOIN UltimoDestino UD ON V.CodVoo = UD.CodVoo
+LEFT JOIN NumEscalas NE ON V.CodVoo = NE.CodVoo
+ORDER BY E.Nome, V.CodVoo;
+
+--7
+
+select v.h_saida_real, a.codemp  from viagem v 
+inner join aviao a on a.codaviao = v.codaviao 
+inner join rota r on r.codrota  = v.codrota 
+where v."data" = '2022-11-07' and r.origem = 'GIG' and  
+    (a.codemp, v.h_saida_real) IN (
+        SELECT 
+            a.codemp, 
+            MIN(v.h_saida_real) AS first_h_saida_real
+        FROM 
+            viagem v
+            INNER JOIN aviao a ON a.codaviao = v.codaviao
+            INNER JOIN rota r ON r.codrota  = v.codrota
+        WHERE 
+            v.data = '2022-11-07' AND r.origem = 'GIG'
+        GROUP BY 
+            a.codemp
+    )
+order by v.h_saida_real;
+
+
+
+--8
+SELECT
+    v.h_saida_real,
+    r.origem,
+    r.destino,
+    CASE
+        WHEN v.h_saida_real- v.h_chegada_real > '00:10:00' THEN 'Atrasado'
+        ELSE 'Pontual'
+    END AS observacao
+FROM
+    viagem v
+    INNER JOIN rota r ON v.codrota = r.codrota
+    INNER JOIN voo vv ON r.codvoo = vv.codvoo
+    INNER JOIN empresa e ON vv.codemp = e.codemp
+where e.codemp = 'AZU' and v."data" = '2022-11-07' ;
+
+
+--9
+with codAtraso as(
+select vovo.codemp as codigo , v.h_saida_real -r.h_saida as atraso  from rota r
+inner join viagem v on v.codrota = r.codrota 
+inner join voo vovo on vovo.codvoo  = r.codvoo ) 
+select e.codemp , avg(ca.atraso) from empresa e
+inner join codAtraso ca on e.codemp = ca.codigo
+group by e.codemp  
+order by e.nome;
+
+--10
+select v.codvoo , v.codemp ,v2."data", r.origem, r.destino, v2.h_saida_real, v2.h_chegada_real  from voo v
+inner join rota r on r.codvoo = v.codvoo 
+inner join viagem v2 on v2.codrota = r.codrota 
+where v2."data" = ' 2022-11-07' and (r.origem = 'BHZ' or r.destino = 'BHZ') and v.codemp = 'GLO';
+
+--11
+select v.codemp, e.codemp, v.codvoo  from voo v
+inner join empresa e on e.codemp = v.codemp 
+inner join rota r on r.codvoo = v.codvoo 
+where r.origem != 'POA' and r.destino != 'POA'
+order by v.codemp ;
+
+--12
+SELECT DISTINCT
+    e.nome
+FROM
+    empresa e
+WHERE
+    NOT EXISTS (
+        SELECT 1
+        FROM
+            voo vv
+            INNER JOIN rota r ON vv.codvoo = r.codvoo
+        WHERE
+            vv.codemp = e.codemp
+            AND r.origem != 'GIG'
+            AND r.destino != 'GIG'
+    );
+   
+ --13
+SELECT 
+    e.CodEmp,
+    e.Nome
+FROM 
+    Empresa e
+WHERE NOT EXISTS (
+    SELECT 
+        t.Origem
+    FROM 
+        Trecho t
+    WHERE NOT EXISTS (
+        SELECT 
+            DISTINCT v.CodRota
+        FROM 
+            Viagem v
+        INNER JOIN Rota r ON v.CodRota = r.CodRota
+        WHERE 
+            r.Origem = t.Origem AND r.CodVoo IN (SELECT CodVoo FROM Voo WHERE CodEmp = e.CodEmp)
+            OR r.Destino = t.Origem AND r.CodVoo IN (SELECT CodVoo FROM Voo WHERE CodEmp = e.CodEmp)
+    )
+)
+GROUP BY 
+    e.CodEmp, e.Nome;
+
+   --14
+   
+   
+   
+   --15
+   WITH DistanciaMaxima AS (
+  SELECT MAX(Distancia) AS MaxDistancia FROM Trecho
+),
+PontosPorTrecho AS (
+  SELECT 
+    Origem, 
+    Destino, 
+    CASE 
+      WHEN t.Distancia = d.MaxDistancia THEN 1000
+      ELSE ROUND((t.Distancia::NUMERIC / d.MaxDistancia) * 1000) 
+    END AS Pontos
+  FROM 
+    Trecho t
+  CROSS JOIN 
+    DistanciaMaxima d
+)
+SELECT * FROM PontosPorTrecho;
+
+
+--16
+
